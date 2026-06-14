@@ -10,3 +10,9 @@ statement = "The Green's integral factorises as a finite separable rank-K×R sum
 status    = "math.conjectured"
 lean      = "IGL.fubini_factorization"
 created   = "2026-06-14"
+
+[claims.naive-separable]
+kind      = "conjecture"
+statement = "On a curved chart the Green's kernel factorises separably as-is, with no metric compensation."
+status    = "math.conjectured"
+created   = "2026-06-14"
