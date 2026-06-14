@@ -1,0 +1,392 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage[T1]{fontenc}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage[colorlinks=true,linkcolor=blue,urlcolor=blue]{hyperref}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{proposition}[theorem]{Proposition}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+% status macros
+\newcommand{\leanname}[1]{\texttt{#1}}
+\newcommand{\proved}{\textcolor{green!55!black}{\textsf{proved, axiom-clean}}}
+\newcommand{\cited}{\textcolor{orange!85!black}{\textsf{cited axiom}}}
+\newcommand{\lstatus}[2]{\par\smallskip\noindent{\footnotesize $\vartriangleright$ \emph{Lean:} \leanname{#1} \;---\; #2.}}
+
+% notation
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\xij}{\xi^j}
+\newcommand{\zj}{\zeta^j}
+\newcommand{\Iint}{I}
+\DeclareMathOperator*{\argmin}{arg\,min}
+
+\title{\textbf{Inverse Green's Learning}\\[2pt]
+  \large A Lean 4 / Mathlib formalization of the factorization theory}
+\author{Formalization notes (IGL project)}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We record the machine-checked content of the \emph{Inverse / Intrinsic Green's Learning}
+(IGL) factorization theory, formalized in Lean~4 against Mathlib (toolchain
+\leanname{leanprover/lean4:v4.30.0}). The factorization theory is proved and kernel-checked:
+the rank-1 and $d$-fold separable factorizations; the general \emph{Master Formula} with its
+Additive-Green and Kolmogorov--Arnold special cases; gauge invariance under
+measure-preserving reparametrization; the \emph{spectral} factorized integral; the
+\emph{CP-rank} sub-additivity and sub-multiplicativity bounds with rank-friendly
+differentiation; and the \emph{separability barrier} (sufficiency, with a concrete necessity
+witness) and its compensation mechanism. Each carries its Lean name and its complete axiom
+dependency; the proved results rest only on Mathlib's three standard
+axioms (\leanname{propext}, \leanname{Classical.choice}, \leanname{Quot.sound}). The
+classical elliptic-PDE prerequisites absent from Mathlib --- the Green's kernel itself and
+the Braess--Hackbusch exponential-sum rank bound --- are introduced as \emph{named, cited
+axioms}, so every result that depends on them names them explicitly.
+\end{abstract}
+
+\section{Setup}
+
+Fix an intrinsic dimension $d$ and ranks $K, R \in \mathbb{N}$. Points of the coordinate
+space are $\xi = (\xi^1,\dots,\xi^d) \in \R^d$ (the query / intrinsic coordinate) and
+$\zeta = (\zeta^1,\dots,\zeta^d) \in \R^d$ (the integration variable). We integrate against
+Lebesgue measure on $\R^d$, which is the product $\bigotimes_{j=1}^d \mathrm{vol}$ of the
+one-dimensional Lebesgue measures (in Mathlib, \leanname{MeasureTheory.volume\_pi}, a
+definitional equality).
+
+\begin{definition}[Rank-$R$ separable source]\label{def:source}
+$\displaystyle \hat f(\zeta) = \sum_{r=1}^{R} w_r \prod_{j=1}^{d} \varphi_{r,j}(\zj)$,
+with weights $w_r \in \R$ and univariate factors $\varphi_{r,j}\colon \R \to \R$.
+\lstatus{IGL.separableSource}{definition}
+\end{definition}
+
+\begin{definition}[Rank-$K$ separable kernel]\label{def:kernel}
+$\displaystyle G(\xi,\zeta) = \sum_{k=1}^{K} \gamma_k \prod_{j=1}^{d} G_{k,j}(\xij,\zj)$,
+with mixing weights $\gamma_k \in \R$ and univariate kernels $G_{k,j}\colon \R\times\R\to\R$.
+\lstatus{IGL.separableKernel}{definition}
+\end{definition}
+
+\begin{definition}[One-dimensional partial integral]\label{def:I}
+$\displaystyle \Iint_{k,r,j}(\xij) = \int_{\R} G_{k,j}(\xij,\zj)\,\varphi_{r,j}(\zj)\,d\zj$.
+\lstatus{IGL.partialIntegral}{definition}
+\end{definition}
+
+\begin{definition}[IGL output]\label{def:output}
+$\displaystyle u(\xi) = \sum_{k=1}^{K}\sum_{r=1}^{R} \gamma_k w_r \prod_{j=1}^{d} \Iint_{k,r,j}(\xij)$.
+\lstatus{IGL.iglParticular}{definition}
+\end{definition}
+
+\section{The factorization theorems}
+
+\begin{theorem}[Rank-1 factorization]\label{thm:rank1}
+For $f,g\colon\R\to\R$,
+$\displaystyle \int_{\R^2} f(p_1)\,g(p_2)\,d(p_1,p_2) = \Big(\int_\R f\Big)\Big(\int_\R g\Big).$
+\end{theorem}
+\begin{proof}
+Immediate from the product-measure integral of a separated product; in Mathlib this is
+\leanname{MeasureTheory.integral\_prod\_mul}, which holds unconditionally (both sides
+vanish when the factors fail to be integrable).
+\end{proof}
+\lstatus{igl\_separable\_factorization}{\proved}
+
+\begin{theorem}[$d$-fold separable factorization]\label{thm:dfold}
+For $h_1,\dots,h_d\colon\R\to\R$,
+\[
+  \int_{\R^d} \prod_{j=1}^{d} h_j(\zj)\,d\zeta = \prod_{j=1}^{d}\int_\R h_j(\zj)\,d\zj .
+\]
+\end{theorem}
+\begin{proof}
+This is the Fubini--Tonelli factorization for a product measure: since Lebesgue measure on
+$\R^d$ equals $\bigotimes_j \mathrm{vol}$ and each factor is $\sigma$-finite, the integral
+of a product of coordinate-wise factors equals the product of the one-dimensional
+integrals. In Mathlib this is \leanname{MeasureTheory.integral\_fintype\_prod\_eq\_prod}.
+Generalizes Theorem~\ref{thm:rank1} from two factors to $d$.
+\end{proof}
+\lstatus{IGL.fubini\_dfold}{\proved}
+
+\begin{theorem}[Master Formula]\label{thm:master}
+Let $\hat f$ and $G$ be separable as in Definitions~\textup{\ref{def:source}} and
+\textup{\ref{def:kernel}}. Assume that for each $k,r$ the function
+$\zeta \mapsto \big(\prod_j G_{k,j}(\xij,\zj)\big)\big(\prod_j \varphi_{r,j}(\zj)\big)$ is
+Lebesgue-integrable on $\R^d$. Then
+\[
+  \int_{\R^d} G(\xi,\zeta)\,\hat f(\zeta)\,d\zeta
+  = \sum_{k=1}^{K}\sum_{r=1}^{R} \gamma_k w_r \prod_{j=1}^{d} \Iint_{k,r,j}(\xij)
+  = u(\xi),
+\]
+reducing the per-sample cost from $O(N^d)$ to $O(KRd)$.
+\end{theorem}
+\begin{proof}
+Write the integrand with the separable forms of kernel and source:
+\[
+  \int_{\R^d}
+    \Big(\sum_{k}\gamma_k\prod_j G_{k,j}(\xij,\zj)\Big)
+    \Big(\sum_{r} w_r\prod_j \varphi_{r,j}(\zj)\Big)d\zeta .
+\]
+
+\emph{Step 1 (expand the product of sums).} Distributing the two finite sums turns the
+integrand into $\sum_{k}\sum_{r}\big(\gamma_k\prod_j G_{k,j}\big)\big(w_r\prod_j \varphi_{r,j}\big)$.
+
+\emph{Step 2 (interchange the finite sums and the integral).} Each summand equals
+$\gamma_k w_r \cdot \big(\prod_j G_{k,j}\big)\big(\prod_j \varphi_{r,j}\big)$, i.e.\ the
+hypothesized integrand scaled by the constant $\gamma_k w_r$, hence integrable. As a finite
+sum of integrable functions is integrable and the Bochner integral is linear,
+\[
+  \int_{\R^d}\sum_{k,r}(\cdots)\,d\zeta
+  = \sum_{k}\sum_{r}\int_{\R^d}
+      \Big(\gamma_k\prod_j G_{k,j}\Big)\Big(w_r\prod_j \varphi_{r,j}\Big)d\zeta .
+\]
+This is the \emph{only} place the integrability hypothesis is used.
+
+\emph{Step 3 (factor each $(k,r)$ term).} Fix $k,r$. Pull out the scalar $\gamma_k w_r$ and
+merge the two $d$-fold products into one product of $d$ univariate factors:
+\[
+  \int_{\R^d}\Big(\gamma_k\prod_j G_{k,j}\Big)\Big(w_r\prod_j \varphi_{r,j}\Big)d\zeta
+  = \gamma_k w_r \int_{\R^d}\prod_{j=1}^{d}\big(G_{k,j}(\xij,\zj)\,\varphi_{r,j}(\zj)\big)\,d\zeta .
+\]
+The integrand is now a product of $d$ factors, the $j$-th depending only on $\zj$, so
+Theorem~\ref{thm:dfold} (with $h_j(\zj) = G_{k,j}(\xij,\zj)\varphi_{r,j}(\zj)$) gives
+$\gamma_k w_r\prod_j \int_\R G_{k,j}(\xij,\zj)\varphi_{r,j}(\zj)\,d\zj
+ = \gamma_k w_r\prod_j \Iint_{k,r,j}(\xij)$,
+using Definition~\ref{def:I}. Summing over $k,r$ yields the claim.
+\end{proof}
+\lstatus{IGL.fubini\_factorization}{\proved}
+
+\section{Special cases}
+
+\begin{corollary}[Additive-Green, $K=1$]\label{cor:additive}
+For a single separable kernel $\prod_j G_j(\xij,\zj)$ and a rank-$R$ separable source (under
+the analogous integrability hypothesis),
+$\displaystyle \int_{\R^d}\Big(\prod_j G_j(\xij,\zj)\Big)\hat f(\zeta)\,d\zeta
+  = \sum_{r} w_r \prod_{j=1}^{d} \Iint_{r,j}(\xij).$
+\end{corollary}
+\begin{proof}
+The $K=1$ instance of Theorem~\ref{thm:master}: there is no $k$-sum, so Steps~1--2 reduce to
+pulling the single finite $r$-sum through the integral (linearity, justified by
+integrability), and Step~3 applies Theorem~\ref{thm:dfold} to each $r$-term verbatim.
+\end{proof}
+\lstatus{IGL.additiveGreen\_factorization}{\proved}
+
+\begin{corollary}[Kolmogorov--Arnold limit, $G=\mathrm{Id}$]\label{cor:kan}
+If each one-dimensional integral reproduces its source factor,
+$\Iint_{k,r,j}(\xij) = \varphi_{r,j}(\xij)$ (the identity-/reproducing-kernel condition),
+then the output collapses to a sum of products of univariate functions of the coordinates:
+$\displaystyle u(\xi) = \sum_{k}\sum_{r} \gamma_k w_r \prod_{j=1}^{d}\varphi_{r,j}(\xij).$
+\end{corollary}
+\begin{proof}
+Substitute the reproducing identity $\Iint_{k,r,j}(\xij)=\varphi_{r,j}(\xij)$ into
+Definition~\ref{def:output}.
+\end{proof}
+\lstatus{IGL.kan\_reduction}{\proved}
+
+\section{Gauge invariance}
+
+\begin{theorem}[Gauge invariance]\label{thm:gauge}
+Let $e\colon \R^d \to \R^d$ be a measure-preserving reparametrization (a measurable
+equivalence with $e_\sharp \mathrm{vol} = \mathrm{vol}$; e.g.\ any rotation, as used by the
+random-rotation embedding). Then for every $h\colon\R^d\to\R$,
+$\displaystyle \int_{\R^d} h(e(\zeta))\,d\zeta = \int_{\R^d} h(\zeta)\,d\zeta.$
+In particular the IGL prediction integral is invariant under such reparametrizations; the
+``source transforms inversely'' of the informal account is the change of variables
+$h \circ e$.
+\end{theorem}
+\begin{proof}
+Change of variables for a measure-preserving map: in Mathlib,
+\leanname{MeasureTheory.MeasurePreserving.integral\_comp'} applied to $e$ and $h$.
+\end{proof}
+\lstatus{IGL.gauge\_invariance}{\proved}
+
+\section{Spectral form}
+
+\begin{theorem}[Additive eigenvalues become a product]\label{thm:expneg}
+For $\alpha\in\R$ and $\lambda_1,\dots,\lambda_d\in\R$,
+$\displaystyle \exp\!\Big(-\alpha\sum_{j=1}^d\lambda_j\Big)=\prod_{j=1}^d\exp(-\alpha\lambda_j).$
+\end{theorem}
+\begin{proof}
+Distribute the scalar over the finite sum and apply $\exp(\sum_j a_j)=\prod_j\exp(a_j)$
+(Mathlib \leanname{Real.exp\_sum}) with $a_j=-\alpha\lambda_j$.
+\end{proof}
+\lstatus{IGL.exp\_neg\_sum\_eigs}{\proved}
+
+\begin{theorem}[Spectral factorized integral]\label{thm:spectral}
+Let modes be multi-indices $n\colon\{1,\dots,d\}\to\{1,\dots,M\}$, with per-axis eigenvalues
+$\lambda_{j,m}$, eigenfunctions $\varphi_{j,m}$, and a source separable in the eigenbasis,
+$\hat f_n=\prod_j g_{j,n_j}$. With the exponential-sum surrogate
+$1/\lambda\approx\sum_k\gamma_k e^{-\alpha_k\lambda}$ applied modewise,
+\[
+  \sum_{k}\gamma_k\sum_{n}\Big(\prod_j e^{-\alpha_k\lambda_{j,n_j}}\varphi_{j,n_j}(\xij)\Big)\prod_j g_{j,n_j}
+  = \sum_{k}\gamma_k\prod_{j=1}^d\sum_{m=1}^M e^{-\alpha_k\lambda_{j,m}}\varphi_{j,m}(\xij)\,g_{j,m}.
+\]
+\end{theorem}
+\begin{proof}
+Fix $k$ and merge the two products over $j$ into a single
+$\prod_j\big(e^{-\alpha_k\lambda_{j,n_j}}\varphi_{j,n_j}(\xij)\,g_{j,n_j}\big)$. The sum over
+multi-indices $n$ of a product of per-axis factors equals the product over axes of the
+per-axis sums (the distributive law $\prod_j\sum_m=\sum_{n}\prod_j$, Mathlib
+\leanname{Finset.prod\_univ\_sum}) --- the discrete analogue of Theorem~\ref{thm:dfold}. The
+additive eigenvalue coupling was converted into a product beforehand by
+Theorem~\ref{thm:expneg}.
+\end{proof}
+\lstatus{IGL.spectral\_factorization}{\proved}
+
+\section{CP-rank and rank-friendly differentiation}
+
+\begin{definition}[CP-rank, upper bound]\label{def:cprank}
+$\mathrm{HasCPRank}(f,n)$ holds when $f(\zeta)=\sum_{i} w_i\prod_j\varphi_{i,j}(\zj)$ over an
+index set of cardinality $n$ --- a \emph{constructive} upper bound on the CP-rank: it carries
+an explicit $n$-term decomposition (no minimisation), which is all the paper's bounds need.
+\lstatus{IGL.HasCPRank}{definition}
+\end{definition}
+
+\begin{theorem}[Sub-additivity of CP-rank]\label{thm:rankadd}
+$\mathrm{rank}(f+g)\le\mathrm{rank}(f)+\mathrm{rank}(g).$
+\end{theorem}
+\begin{proof}
+Concatenate the two term families over the disjoint union of the index sets; a sum over a
+disjoint union splits into the two sums (\leanname{Fintype.sum\_sum\_type}) and cardinalities
+add (\leanname{Fintype.card\_sum}).
+\end{proof}
+\lstatus{IGL.HasCPRank.add}{\proved}
+
+\begin{theorem}[Sub-multiplicativity of CP-rank]\label{thm:rankmul}
+$\mathrm{rank}(f\cdot g)\le\mathrm{rank}(f)\cdot\mathrm{rank}(g)$ for the pointwise product.
+\end{theorem}
+\begin{proof}
+Index the result by pairs. Expand the product of the two CP sums
+(\leanname{Finset.sum\_mul\_sum}), repackage the resulting double sum as a sum over the
+product index (\leanname{Fintype.sum\_prod\_type}), and merge the two $j$-products into one
+(\leanname{Finset.prod\_mul\_distrib}); cardinalities multiply (\leanname{Fintype.card\_prod}).
+\end{proof}
+\lstatus{IGL.HasCPRank.mul}{\proved}
+
+\begin{theorem}[Differentiation is rank-friendly]\label{thm:diffrank}
+A coordinate-wise separable operator $L=\sum_j L_j$ (each $L_j$ acting on the $j$-th factor)
+maps a rank-$R$ source to one of rank at most $R\,d$:
+$\displaystyle L\hat f=\sum_r w_r\sum_j (L_j\varphi_{r,j})\prod_{i\ne j}\varphi_{r,i},$
+a sum of $R d$ separable terms.
+\end{theorem}
+\begin{proof}
+The $(r,j)$ term replaces the $j$-th factor of the $r$-th source term by its $L_j$-image.
+Re-indexing the $R$-sum-of-$d$-sums as a single sum over
+$\{1,\dots,R\}\times\{1,\dots,d\}$ (\leanname{Fintype.sum\_prod\_type},
+\leanname{Finset.mul\_sum}) exhibits the decomposition; the index set has cardinality $Rd$.
+\end{proof}
+\lstatus{IGL.applyCoordOp\_hasCPRank}{\proved}
+
+\section{The separability barrier}
+
+\begin{definition}[Metric volume factor]\label{def:metric}
+On a curved chart the integral carries $\sqrt{|g(\zeta)|}$:
+$u(\xi)=\int_{\R^d} G(\xi,\zeta)\,\tilde f(\zeta)\,\sqrt{|g(\zeta)|}\,d\zeta$.
+\end{definition}
+
+\begin{theorem}[Barrier --- sufficiency (``if'')]\label{thm:barrierif}
+If the metric factor is itself separable, $\sqrt{|g(\zeta)|}=\prod_j\chi_j(\zj)$, then for a
+rank-$R$ separable source (under the analogous integrability hypothesis) the compensated
+integral still factorizes:
+\[
+  \int_{\R^d}\Big(\prod_j G_j(\xij,\zj)\Big)\Big(\sum_r w_r\prod_j\varphi_{r,j}(\zj)\Big)\Big(\prod_j\chi_j(\zj)\Big)d\zeta
+  = \sum_r w_r\prod_{j=1}^d\int_\R G_j\,\varphi_{r,j}\,\chi_j\,d\zj.
+\]
+\end{theorem}
+\begin{proof}
+Distribute the finite $r$-sum through the integral (linearity, justified by integrability);
+for each $r$ merge the three products into $\prod_j\big(G_j\varphi_{r,j}\chi_j\big)$
+(\leanname{Finset.prod\_mul\_distrib}) and apply Theorem~\ref{thm:dfold}. The metric is
+absorbed axis-by-axis: a separable $\sqrt{|g|}$ does not obstruct the collapse.
+\end{proof}
+\lstatus{IGL.barrier\_if\_factorization}{\proved}
+
+\begin{theorem}[Barrier --- necessity (witness)]\label{thm:barrieronly}
+The metric factor $\sqrt{|g(\zeta)|}=1+\zeta_0\zeta_1$ on $\R^2$ is \emph{not} rank-1: there
+is no decomposition $1+\zeta_0\zeta_1=a(\zeta_0)\,b(\zeta_1)$.
+\end{theorem}
+\begin{proof}
+Suppose $1+\zeta_0\zeta_1=c\,a(\zeta_0)\,b(\zeta_1)$ for all $\zeta$. Evaluating at the four
+points $(0,0),(1,1),(0,1),(1,0)$ gives $c\,a(0)b(0)=1$, $c\,a(1)b(1)=2$, $c\,a(0)b(1)=1$, and
+$c\,a(1)b(0)=1$. But $\big(c\,a(0)b(0)\big)\big(c\,a(1)b(1)\big)=\big(c\,a(0)b(1)\big)\big(c\,a(1)b(0)\big)$
+holds identically, forcing $1\cdot 2 = 1\cdot 1$ --- a contradiction.
+\end{proof}
+\lstatus{IGL.barrierWitness\_not\_rank\_one}{\proved}
+
+\noindent This is the rigorous core of the informal ``only if'' direction. The fully general
+converse (every non-product $\sqrt{|g|}$ blocks factorization) requires non-degeneracy
+hypotheses on the function families --- a constant or zero source factorizes anything --- and
+is therefore left informal rather than asserted as an axiom.
+
+\begin{theorem}[Compensation restores separability]\label{thm:comp}
+Learning the compensated source $\hat f=\tilde f\sqrt{|g|}$ absorbs the metric, so the
+integrand is again separable and the Master Formula applies to $\hat f$. The rank cost is
+\emph{multiplicative} for metric absorption
+($\mathrm{rank}(\tilde f\sqrt{|g|})\le\mathrm{rank}(\tilde f)\,\mathrm{rank}(\sqrt{|g|})$,
+Theorem~\ref{thm:rankmul}) and \emph{additive} for the operator correction
+($\mathrm{rank}(\hat f)\le\mathrm{rank}(\tilde f\sqrt{|g|})+\mathrm{rank}(L_{\mathrm{coup}}u^*)$,
+Theorem~\ref{thm:rankadd}).
+\end{theorem}
+
+\section{Cited classical prerequisites}
+
+Mathlib~v4.30.0 contains no theory of Green's functions of elliptic operators and no
+exponential-sum approximation theory (verified by source search: no
+\leanname{greensFunction} / \leanname{fundamentalSolution} / \leanname{Helmholtz} /
+Riesz--Newtonian potential, and no exp-sum results). The two classical facts IGL builds on
+are therefore introduced as \emph{named axioms}, with citations, rather than proved. They
+are \emph{not} \leanname{sorry}: every theorem using them lists them by name under
+\leanname{\#print axioms}, so the dependence on a cited result is always auditable.
+
+\begin{definition}[Green's kernel, cited]\label{ax:green}
+For the chosen elliptic operator $L$, the integral kernel $G$ with $u = G * f$ solving
+$Lu=f$ is posited per operator.
+\lstatus{IGL.greensKernel}{\cited}
+\end{definition}
+
+\begin{proposition}[Exponential-sum rank bound, cited]\label{ax:expsum}
+There is a constant $C>0$ such that for all $\varepsilon\in(0,1)$ the separable rank
+$K(\varepsilon)$ required to approximate an elliptic Green's kernel to accuracy
+$\varepsilon$ satisfies $K(\varepsilon) \le C\log(1/\varepsilon) + C$ --- logarithmic in
+$1/\varepsilon$ and independent of the dimension (Braess--Hackbusch exponential sums).
+\lstatus{IGL.expSumRank\_logBound}{\cited}
+\end{proposition}
+
+\section{Formalization status}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{@{}llc@{}}
+\toprule
+\textbf{Result} & \textbf{Lean name} & \textbf{Status}\\
+\midrule
+Rank-1 factorization (Thm.~\ref{thm:rank1})         & \leanname{igl\_separable\_factorization} & \proved\\
+$d$-fold factorization (Thm.~\ref{thm:dfold})       & \leanname{IGL.fubini\_dfold}             & \proved\\
+Master Formula (Thm.~\ref{thm:master})              & \leanname{IGL.fubini\_factorization}    & \proved\\
+Additive-Green (Cor.~\ref{cor:additive})            & \leanname{IGL.additiveGreen\_factorization} & \proved\\
+Kolmogorov--Arnold limit (Cor.~\ref{cor:kan})       & \leanname{IGL.kan\_reduction}           & \proved\\
+Gauge invariance (Thm.~\ref{thm:gauge})             & \leanname{IGL.gauge\_invariance}        & \proved\\
+Additive eigenvalues $\to$ product (Thm.~\ref{thm:expneg}) & \leanname{IGL.exp\_neg\_sum\_eigs} & \proved\\
+Spectral factorization (Thm.~\ref{thm:spectral})    & \leanname{IGL.spectral\_factorization}  & \proved\\
+CP-rank sub-additivity (Thm.~\ref{thm:rankadd})     & \leanname{IGL.HasCPRank.add}            & \proved\\
+CP-rank sub-multiplicativity (Thm.~\ref{thm:rankmul}) & \leanname{IGL.HasCPRank.mul}          & \proved\\
+Rank-friendly differentiation (Thm.~\ref{thm:diffrank}) & \leanname{IGL.applyCoordOp\_hasCPRank} & \proved\\
+Barrier, sufficiency (Thm.~\ref{thm:barrierif})     & \leanname{IGL.barrier\_if\_factorization} & \proved\\
+Barrier, necessity witness (Thm.~\ref{thm:barrieronly}) & \leanname{IGL.barrierWitness\_not\_rank\_one} & \proved\\
+Green's kernel (Def.~\ref{ax:green})                & \leanname{IGL.greensKernel}             & \cited\\
+Exp-sum rank bound (Prop.~\ref{ax:expsum})          & \leanname{IGL.expSumRank\_logBound}     & \cited\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent
+All proved results depend only on \leanname{propext}, \leanname{Classical.choice},
+\leanname{Quot.sound}; none of them depends on \leanname{IGL.greensKernel} or
+\leanname{IGL.expSumRank\_logBound}, confirming that the factorization theory stands on
+Mathlib's foundations alone.
+
+\end{document}

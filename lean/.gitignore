@@ -1,0 +1,7 @@
+/.lake
+/blueprint/.lake
+/blueprint/*.aux
+/blueprint/*.log
+/blueprint/*.out
+/blueprint/*.fls
+/blueprint/*.fdb_latexmk
