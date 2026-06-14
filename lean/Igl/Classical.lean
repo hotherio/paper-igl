@@ -24,4 +24,10 @@ axiom greensKernel (d : ℕ) : (Fin d → ℝ) → (Fin d → ℝ) → ℝ
 /-- The separable rank needed to approximate the Green's kernel to accuracy `ε`. -/
 axiom expSumRank : ℝ → ℕ
 
+/-- (CITED — Braess–Hackbusch exponential sums) **Exponential-sum rank bound.** For
+elliptic operators, the separable rank required to reach kernel accuracy `ε` grows only
+logarithmically in `1/ε`, and the bound is independent of the dimension. -/
+axiom expSumRank_logBound :
+    ∃ C : ℝ, 0 < C ∧ ∀ ε : ℝ, 0 < ε → ε < 1 → (expSumRank ε : ℝ) ≤ C * Real.log (1 / ε) + C
+
 end IGL
