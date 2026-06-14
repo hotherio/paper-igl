@@ -27,9 +27,28 @@ cd paper && latexmk -pdf main.tex
 
 Build artifacts (`*.aux`, `*.log`, `main.pdf`, …) are gitignored.
 
+## Formalization
+
+A Lean 4 / Mathlib formalization of the IGL theory lives in [`lean/`](lean/). It
+kernel-checks (Lean 4.30.0, Mathlib v4.30.0) the paper's theorems:
+
+- the **Master Formula** / factorized integral and its `d`-fold Fubini core, with the
+  **KAN** (`G = Id`), **Additive-Green** (`K = 1`), and **gauge-invariance** corollaries;
+- the **spectral** factorized integral (`Igl/Spectral.lean`);
+- the **separability barrier**: sufficiency, plus a concrete necessity witness
+  (`Igl/Barrier.lean`);
+- **CP-rank** sub-additivity / sub-multiplicativity and **rank-friendly differentiation**
+  (`Igl/Rank.lean`).
+
+The only cited axiom is the Braess–Hackbusch exponential-sum bound `K = O(log 1/ε)`
+(`Igl/Classical.lean`), made explicit and auditable via `#print axioms`: no `sorry`.
+A natural-language proof blueprint is in [`lean/blueprint/`](lean/blueprint/); see
+[`lean/RESEARCH.md`](lean/RESEARCH.md) for the formalization ledger.
+
+```bash
+cd lean && lake exe cache get && lake build
+```
+
 ## Related
 
-- **Lean formalization** of the IGL theory (rank-1 / d-fold separable factorization, the
-  Master Formula, gauge invariance, the KAN and Additive-Green reductions) is maintained as a
-  separate formalization project: home TBD; not vendored here.
 - **Python package**: [`hotherio/intrinsic-green-learning`](https://github.com/hotherio/intrinsic-green-learning).
